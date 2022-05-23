@@ -1,23 +1,26 @@
 const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
-var items = ["have a cup of coffee","reading paper"];
+// scope
+// global letiables
+let items = ["have a cup of coffee","reading paper"];
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({
   extended: true
 }));
+app.use(express.static("public"));
 
 app.get("/", function(req, res) {
   // res.send("hello");
-  var today = new Date();
+  let today = new Date();
 
-  var option = {
+  let option = {
     weekday:"long",
     day:"numeric",
     month:"long"
   };
 
-  var day = today.toLocaleDateString("en-US",option);
+  let day = today.toLocaleDateString("en-US",option);
 
   res.render("list", {
     kindOfDay: day,
