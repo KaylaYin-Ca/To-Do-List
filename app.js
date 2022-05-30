@@ -1,45 +1,110 @@
 const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
-
-const date = require(__dirname+"/date.js");
+const mongoose = require("mongoose");
+const date = require(__dirname + "/date.js");
 // console.log(date());
 // scope
 // global letiables
-let items = ["have a cup of coffee", "reading paper"];
-let workItems = [];
+// let items = ["have a cup of coffee", "reading paper"];
+// let workItems = [];
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({
   extended: true
 }));
+
 app.use(express.static("public"));
 
+// =============== MongoDB ==============
+const dbURL = "mongodb://localhost:27017/todolistDB";
+mongoose.connect(dbURL, {
+  useNewUrlParser: true
+});
+
+const itemsSchema = {
+  name: String
+};
+
+const Item = new mongoose.model("Item", itemsSchema);
+
+const item1 = new Item({
+  name: "Get Up"
+});
+const item2 = new Item({
+  name: "Brush your teeth"
+});
+const item3 = new Item({
+  name: "Eat breakfirst"
+});
+
+const defaultItems = [item1, item2, item3];
+
+
+
+// ================ request and response ==========
 app.get("/", function(req, res) {
-  // res.send("hello");
   let day = date.getDate();
-  res.render("list", {
-    listTitle: day,
-    newItem: items
+  //get default items from MongoDB
+  Item.find(function(err, items) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (items.length === 0) {
+        // insert default items
+        Item.insertMany(defaultItems, function(err) {
+          if (err) {
+            console.log(err);
+          } else {
+            console.log("successfully saved defautl items to DB!");
+          }
+        });
+        res.render("/");
+      } else {
+        res.render("list", {
+          listTitle: day,
+          newItem: items
+        });
+      }
+    }
   });
+
 });
 
 app.post("/", function(req, res) {
   // console.log(req.body.todo);
   // res.send(req.body.todo);
-  let item = req.body.todo;
-  let page = req.body.list;
-  console.log(req.body);
-  if (page === "Work") {
-    workItems.push(item);
-    res.redirect("/work");
-  } else {
-    items.push(item);
-    res.redirect("/");
-  }
-  // console.log(items);
+  const itemName = req.body.todo;
+
+  const item = new Item({
+    name:itemName
+  });
+
+  item.save(function(err){
+    if (err) {
+      console.log(err);
+    }else{
+      res.redirect("/");
+    }
+  });
+});
+
+app.post("/delete",function(req,res){
+
+  const itemID = req.body.checkbox;
+  Item.deleteOne({_id:itemID},function(err){
+    if (err) {
+      console.log(err);
+    }else{
+      res.redirect("/");
+      console.log("successfully deleted the to-do list item");
+    }
+  });
+
 
 });
+
+
 
 app.get("/work", function(req, res) {
   res.render("list", {
@@ -48,7 +113,7 @@ app.get("/work", function(req, res) {
   });
 });
 
-app.get("/about",function(req,res){
+app.get("/about", function(req, res) {
   res.render("about");
 });
 
