@@ -12,7 +12,9 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
 // =============== MongoDB ==============
-const dbURL = "mongodb://localhost:27017/todolistDB";
+const password = "18780013365"
+const mongoDB_Cloud = "mongodb+srv://admin-yin:"+password+"@cluster0.god4m.mongodb.net";
+const dbURL = mongoDB_Cloud+"/todolistDB";
 mongoose.connect(dbURL, {useNewUrlParser: true});
 
 const itemsSchema = {
