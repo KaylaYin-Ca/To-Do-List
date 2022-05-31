@@ -1,26 +1,19 @@
+//jshit esversion:6
+
 const express = require("express");
-const app = express();
 const bodyParser = require("body-parser");
-const mongoose = require("mongoose");
-const date = require(__dirname + "/date.js");
-// console.log(date());
-// scope
-// global letiables
-// let items = ["have a cup of coffee", "reading paper"];
-// let workItems = [];
+const mongoose = require("mongoose"); // use mongodb
+const _ = require("lodash");
+
+const app = express();
 
 app.set("view engine", "ejs");
-app.use(bodyParser.urlencoded({
-  extended: true
-}));
-
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
 // =============== MongoDB ==============
 const dbURL = "mongodb://localhost:27017/todolistDB";
-mongoose.connect(dbURL, {
-  useNewUrlParser: true
-});
+mongoose.connect(dbURL, {useNewUrlParser: true});
 
 const itemsSchema = {
   name: String
@@ -47,113 +40,95 @@ const listSchema = {
 
 const List = new mongoose.model("List", listSchema);
 
-
-
 // ================ request and response ==========
+// root (get method)
 app.get("/", function(req, res) {
-  let day = date.getDate();
   //get default items from MongoDB
-  Item.find(function(err, items) {
-    if (err) {
-      console.log(err);
-    } else {
-      if (items.length === 0) {
+  Item.find({}, function(err, foundItems){
+
+      if (foundItems.length === 0) {
         // insert default items
-        Item.insertMany(defaultItems, function(err) {
+        Item.insertMany(defaultItems, function(err){
           if (err) {
             console.log(err);
           } else {
             console.log("successfully saved defautl items to DB!");
           }
         });
-        res.render("/");
+        res.redirect("/");
       } else {
-        res.render("list", {
-          listTitle: day,
-          newItem: items
-        });
+        res.render("list", {listTitle: "Today",newListItems: foundItems});
       }
-    }
-  });
-
-});
-
-app.post("/", function(req, res) {
-  // console.log(req.body.todo);
-  // res.send(req.body.todo);
-  let day = date.getDay();
-
-  const itemName = req.body.todo;
-  const listName = (req.body.list).slice(0,-1);
-  const item = new Item({
-    name: itemName
-  });
-
-  if (listName === day) {
-    item.save();
-    res.redirect("/");
-  }else{
-    List.findOne({name:listName},function(err,foundList){
-      foundList.items.push(item);
-      foundList.save();
-      res.redirect("/"+listName);
     });
-
-  }
 });
 
-app.post("/delete", function(req, res) {
+// customer to do list page
+app.get("/:customListName", function(req, res) {
 
-  const itemID = req.body.checkbox;
-  Item.deleteOne({
-    _id: itemID
-  }, function(err) {
-    if (err) {
-      console.log(err);
-    } else {
-      res.redirect("/");
-      console.log("successfully deleted the to-do list item");
-    }
-  });
-});
+  const customListName = _.capitalize(req.params.customListName);
 
-app.get("/:listName", function(req, res) {
-  let day = date.getDate();
-  const customListName = req.params.listName;
-  console.log(customListName);
-
-  List.findOne({
-    name: customListName
-  }, function(err, foundList) {
-    if (err) {
-      console.log(err);
-    } else {
+  List.findOne({name: customListName}, function(err, foundList) {
+    if (!err) {
       if (!foundList) {
+        // if no error and found nothing (create a new list)
         const list = new List({
           name: customListName,
           items: defaultItems
         });
         list.save();
         res.redirect("/" + customListName);
-        console.log("Doesn't exist!");
       } else {
-        console.log("Exist!");
-        res.render("list", {
-          listTitle: foundList.name,
-          newItem: foundList.items
-        });
+        // show exist to do item
+        res.render("list", {listTitle: foundList.name, newListItems: foundList.items});
       }
     }
   });
 });
 
+// add new to-do item
+app.post("/", function(req, res) {
 
-// app.get("/work", function(req, res) {
-//   res.render("list", {
-//     listTitle: "Work List",
-//     newItem: workItems
-//   });
-// });
+  const itemName = req.body.newItem;
+  const listName = req.body.list;
+  const item = new Item({
+    name: itemName
+  });
+
+  if (listName === "Today") {
+    item.save();
+    res.redirect("/");
+  } else {
+    List.findOne({name: listName}, function(err, foundList) {
+      foundList.items.push(item);
+      foundList.save();
+      res.redirect("/" + listName);
+    });
+  }
+});
+
+// delete to-do item
+app.post("/delete", function(req, res) {
+
+  const checkedItemId = req.body.checkbox;
+  const listName = req.body.listName;
+  // console.log(listName, itemID);
+
+  if (listName === "Today") {
+    Item.findByIdAndRemove(checkedItemId, function(err) {
+      if (!err) {
+        console.log("successfully deleted checked item.");
+        res.redirect("/");
+      }
+    });
+  } else {
+    List.findOneAndUpdate({name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, foundList){
+      if (!err){
+        res.redirect("/" + listName);
+      }
+    });
+  }
+});
+
 
 app.get("/about", function(req, res) {
   res.render("about");
